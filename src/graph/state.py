@@ -3,7 +3,7 @@ State definition for the Legal Document Generation & Evaluation Agent.
 """
 
 from typing import TypedDict, Optional, Dict, Any, List
-from src.schemas.entity_schema import CaseInformationSchema, EvaluationReportSchema
+from src.schemas.schema_info import CaseInformationSchema, EvaluationReportSchema
 
 
 class AgentWorkflowState(TypedDict, total=False):

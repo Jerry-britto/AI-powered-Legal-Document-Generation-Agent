@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 from src.graph.agent_worfklow import build_legal_doc_agent_graph
 from src.utils.parser_utils import ingest_case_document
-from src.schemas.entity_schema import EvaluationReportSchema
+from src.schemas.schema_info import EvaluationReportSchema
 
 load_dotenv()
 

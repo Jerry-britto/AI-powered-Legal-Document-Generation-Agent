@@ -8,7 +8,7 @@ from typing import Any, Dict
 from langgraph.graph import END, StateGraph
 
 from src.evals.scoring import evaluate_affidavit_document
-from src.schemas.entity_schema import CaseInformationSchema
+from src.schemas.schema_info import CaseInformationSchema
 from src.graph.state import AgentWorkflowState
 from src.utils.docx_generator import create_affidavit_docx
 from src.utils.llm import get_llm
