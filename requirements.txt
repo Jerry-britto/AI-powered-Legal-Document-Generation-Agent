@@ -1,0 +1,10 @@
+langchain
+langgraph
+python-dotenv
+langchain-groq
+langchain-google-genai
+llama-cloud>=2.8
+pydantic
+streamlit
+fastapi
+uvicorn
