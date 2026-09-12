@@ -206,24 +206,16 @@ if st.session_state.execution_completed and st.session_state.final_state:
     # Final Outputs: Download Affidavit (.docx) & View Evaluation Report
     # -------------------------------------------------------------
     st.markdown("---")
-    st.markdown("### 📥 Final Legal Document: Affidavit in Reply")
-    st.caption("The generated court filing is typeset strictly according to High Court formatting standards (1.25\" margin, Times New Roman 12pt, 10 mandatory sections).")
+    st.markdown("###  Final Legal Document: Affidavit in Reply")
 
     docx_path = state.get("docx_path", "outputs/Affidavit_in_Reply.docx")
     if Path(docx_path).exists():
         with open(docx_path, "rb") as f:
             docx_data = f.read()
 
-        st.markdown(f"""
-        <div class="download-card">
-            <h3 style="color: #ffffff !important; margin-bottom: 8px;">Affidavit in Reply (.docx)</h3>
-            <p class="doc-meta">Forum: High Court of Judicature at Bombay • Proceeding: Writ Petition No. 1847 of 2026<br>
-            Deponent: Arvind Rajan, Dy. Metropolitan Commissioner on behalf of Respondent No. 2</p>
-        </div>
-        """, unsafe_allow_html=True)
 
         st.download_button(
-            label="📥 Download Affidavit in Reply (.docx)",
+            label="Download Affidavit in Reply (.docx)",
             data=docx_data,
             file_name="Affidavit_in_Reply.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
