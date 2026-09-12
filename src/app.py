@@ -21,6 +21,118 @@ from src.schemas.entity_schema import EvaluationReportSchema
 
 load_dotenv()
 
+
+def render_trace_log(trace_placeholder, traces):
+    """Render the single trace log used during and after execution."""
+    with trace_placeholder.container():
+        with st.expander("Execution step trace logs", expanded=True):
+            if not traces:
+                st.info("Waiting for the first execution step...")
+                return
+
+            for trace in traces:
+                s_num = trace.get("step_number", "")
+                s_name = trace.get("step_name", "")
+                s_status = trace.get("status", "")
+                details = trace.get("details", [])
+
+                st.markdown(f"""
+                <div class="trace-card">
+                    <div class="trace-title">Step {s_num}: {s_name} &nbsp;•&nbsp; <span style="color: #4ade80;">{s_status}</span></div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                for item in details:
+                    st.markdown(f"- {item}")
+                st.write("")
+
+
+def render_outputs_content(state):
+    """Render completed document and evaluation outputs in the Output tab."""
+    docx_path = state.get("docx_path", "outputs/Affidavit_in_Reply.docx")
+    if Path(docx_path).exists():
+        with open(docx_path, "rb") as f:
+            st.download_button(
+                label="Download Affidavit in Reply (.docx)",
+                data=f.read(),
+                file_name="Affidavit_in_Reply.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                type="primary",
+                use_container_width=True,
+                key="download_affidavit",
+            )
+    else:
+        st.warning("The generated affidavit file is not available.")
+
+    st.markdown("---")
+    st.markdown("### 📊 Evaluation Report")
+    report = state.get("evaluation_report")
+    if not report:
+        st.info("Evaluation information is not available.")
+        return
+
+    if isinstance(report, dict):
+        report = EvaluationReportSchema(**report)
+
+    st.markdown(f"""
+    <div class="score-card">
+        <h2 style="color: #60a5fa !important; margin: 0;">Overall Quality Score: {report.overall_score}/100</h2>
+        <p style="color: #e2e8f0; margin-top: 6px; margin-bottom: 0; font-size: 0.95rem;">
+            {report.score_calculation_explanation}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("#### Dimension Breakdown")
+    dim_cols = st.columns(6)
+    for idx, (dim_name, ds) in enumerate(report.dimension_scores.items()):
+        with dim_cols[idx % 6]:
+            st.metric(label=dim_name, value=f"{ds.score:.0f}/100")
+
+    st.markdown("")
+    st.markdown("#### Deterministic Programmatic Checks (Zero-Tolerance Engine)")
+    checks_rows = [
+        {
+            "Rule Check": c.name,
+            "Status": "✅ PASS" if c.passed else "❌ FAIL",
+            "Expected": c.expected,
+            "Actual Output": c.actual,
+        }
+        for c in report.deterministic_checks
+    ]
+    st.dataframe(checks_rows, use_container_width=True, hide_index=True)
+
+    if report.detected_issues:
+        st.markdown("#### Audit Findings & Issues")
+        for i, issue in enumerate(report.detected_issues, 1):
+            st.warning(
+                f"**{i}. [{issue.get('severity', 'ISSUE')}] "
+                f"{issue.get('dimension')}**: {issue.get('message')}"
+            )
+    else:
+        st.success(
+            "✅ Zero structural, factual, or formatting defects detected. "
+            "All 6 High Court compliance checks passed."
+        )
+
+    json_path = state.get("json_path", "outputs/Evaluation_Report.json")
+    if Path(json_path).exists():
+        with open(json_path, "r", encoding="utf-8") as f:
+            st.download_button(
+                label="📥 Download Evaluation Report (.json)",
+                data=f.read(),
+                file_name="Evaluation_Report.json",
+                mime="application/json",
+                use_container_width=True,
+                key="download_evaluation_report",
+            )
+
+
+def render_outputs(output_placeholder, state):
+    with output_placeholder.container():
+        render_outputs_content(state)
+
+
 # Page configuration
 st.set_page_config(
     page_title="AI-Powered Legal Document Generation Agent",
@@ -128,167 +240,89 @@ if "execution_completed" not in st.session_state:
     st.session_state.execution_completed = False
 if "final_state" not in st.session_state:
     st.session_state.final_state = None
+if "execution_state" not in st.session_state:
+    st.session_state.execution_state = None
 
 # -------------------------------------------------------------
-# Agent Execution & Step Traces
+# Agent Execution & Single Step Trace
 # -------------------------------------------------------------
 if run_agent:
     st.session_state.execution_completed = False
     st.session_state.final_state = None
+    st.session_state.execution_state = None
 
-    st.markdown("### 📋 Agent Execution Traces")
-    trace_placeholder = st.container()
+trace_state = st.session_state.final_state or st.session_state.execution_state
+trace_placeholder = None
+output_placeholder = None
+if run_agent or trace_state:
+    trace_tab, output_tab = st.tabs(["Trace", "Output"])
+    with trace_tab:
+        st.markdown("### 📋 Agent Execution Traces")
+        trace_placeholder = st.empty()
+    with output_tab:
+        output_placeholder = st.empty()
+        if st.session_state.execution_completed and st.session_state.final_state:
+            render_outputs(output_placeholder, st.session_state.final_state)
+        else:
+            output_placeholder.info("Output will be available after the agent completes successfully.")
 
-    with st.status("Executing Agent Stages...", expanded=True) as status:
-        try:
-            # Step 1: Ingestion
-            st.write("📥 **Ingesting Input Document**...")
-            if uploaded_file is None:
-                raise ValueError("Upload a case information document before running the agent.")
-            raw_text, source_meta = ingest_case_document(
-                uploaded_file.getvalue(),
-                uploaded_file.name,
-            )
-            st.write(
-                f"✓ Document parsed ({source_meta['character_count']} characters loaded; "
-                f"{'cache hit' if source_meta['cache_hit'] else 'cached new parse'})."
-            )
+if run_agent:
+    if uploaded_file is None:
+        st.error("Upload a case information document before running the agent.")
+        st.stop()
 
-            # Initialize LangGraph
-            st.write("⚙️ **Initializing LangGraph State Workflow**...")
-            graph = build_legal_doc_agent_graph()
-            initial_state = {
-                "raw_document_text": raw_text,
-                **source_meta,
-                "llm_provider": "gemini",
-                "simulated_error": "none",
-                "current_step": "Starting",
-                "status": "initialized",
-                "step_traces": []
-            }
+    try:
+        # The ingestion and workflow setup entries are part of the same trace
+        # list that LangGraph extends as each node completes.
+        raw_text, source_meta = ingest_case_document(
+            uploaded_file.getvalue(),
+            uploaded_file.name,
+        )
+        initial_state = {
+            "raw_document_text": raw_text,
+            **source_meta,
+            "llm_provider": "gemini",
+            "simulated_error": "none",
+            "current_step": "Starting",
+            "status": "initialized",
+            "step_traces": [
+                {
+                    "step_number": 1,
+                    "step_name": "Input ingestion",
+                    "status": "completed",
+                    "details": [
+                        f"Document parsed ({source_meta['character_count']} characters loaded; "
+                        f"{'cache hit' if source_meta['cache_hit'] else 'cached new parse'})."
+                    ],
+                },
+                {
+                    "step_number": 2,
+                    "step_name": "Workflow initialization",
+                    "status": "completed",
+                    "details": ["Initialized the LangGraph state workflow."],
+                },
+            ],
+        }
+        st.session_state.execution_state = initial_state
+        render_trace_log(trace_placeholder, initial_state["step_traces"])
 
-            st.write("🧠 **Running Extraction, Drafting & Dual Evaluation Nodes**...")
-            final_state = graph.invoke(initial_state)
+        graph = build_legal_doc_agent_graph()
+        for streamed_state in graph.stream(initial_state, stream_mode="values"):
+            st.session_state.execution_state = streamed_state
+            render_trace_log(trace_placeholder, streamed_state.get("step_traces", []))
 
-            st.session_state.final_state = final_state
-            st.session_state.execution_completed = True
-            status.update(label="✅ All Stages Completed Successfully!", state="complete", expanded=False)
+        st.session_state.final_state = st.session_state.execution_state
+        st.session_state.execution_completed = True
 
-        except Exception as e:
-            status.update(label="❌ Execution Failed", state="error")
-            st.error(f"Error during agent execution: {str(e)}")
+    except Exception as e:
+        st.error(f"Error during agent execution: {str(e)}")
 
-# -------------------------------------------------------------
-# Display Step Traces
-# -------------------------------------------------------------
 if st.session_state.execution_completed and st.session_state.final_state:
     state = st.session_state.final_state
-    traces = state.get("step_traces", [])
 
-    st.markdown("### 🔍 Execution Step Traces")
-    with st.expander("View Detailed Step Trace Logs", expanded=True):
-        for trace in traces:
-            s_num = trace.get("step_number", "")
-            s_name = trace.get("step_name", "")
-            s_status = trace.get("status", "")
-            details = trace.get("details", [])
-
-            st.markdown(f"""
-            <div class="trace-card">
-                <div class="trace-title">Step {s_num}: {s_name} &nbsp;•&nbsp; <span style="color: #4ade80;">{s_status}</span></div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            for item in details:
-                st.markdown(f"- {item}")
-            st.write("")
-
-    # -------------------------------------------------------------
-    # Final Outputs: Download Affidavit (.docx) & View Evaluation Report
-    # -------------------------------------------------------------
-    st.markdown("---")
-    st.markdown("### 📥 Final Legal Document: Affidavit in Reply")
-    st.caption("The generated court filing is typeset strictly according to High Court formatting standards (1.25\" margin, Times New Roman 12pt, 10 mandatory sections).")
-
-    docx_path = state.get("docx_path")
-    if Path(docx_path).exists():
-        with open(docx_path, "rb") as f:
-            docx_data = f.read()
-
-        intermediate = state.get("intermediate_data")
-        intermediate_data = intermediate.model_dump() if hasattr(intermediate, "model_dump") else (intermediate or {})
-        case_details = intermediate_data.get("case_details", {})
-        deponent = intermediate_data.get("deponent", {})
-        st.markdown(f"""
-        <div class="download-card">
-            <h3 style="color: #ffffff !important; margin-bottom: 8px;">Affidavit in Reply (.docx)</h3>
-            <p class="doc-meta">Forum: {case_details.get("court", "N/A")} • Proceeding: {case_details.get("proceeding_type", "N/A")} No. {case_details.get("case_number", "N/A")} of {case_details.get("year", "N/A")}<br>
-            Deponent: {deponent.get("name", "N/A")}, {deponent.get("designation", "N/A")} on behalf of {case_details.get("filed_on_behalf_of", "N/A")}</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.download_button(
-            label="📥 Download Affidavit in Reply (.docx)",
-            data=docx_data,
-            file_name="Affidavit_in_Reply.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            type="primary",
-            use_container_width=True
-        )
-
-    st.markdown("---")
-    st.markdown("### 📊 Evaluation Report")
-    report = state.get("evaluation_report")
-    if report:
-        if isinstance(report, dict):
-            report = EvaluationReportSchema(**report)
-
-        # Overall Quality Score Banner
-        st.markdown(f"""
-        <div class="score-card">
-            <h2 style="color: #60a5fa !important; margin: 0;">Overall Quality Score: {report.overall_score}/100</h2>
-            <p style="color: #e2e8f0; margin-top: 6px; margin-bottom: 0; font-size: 0.95rem;">
-                {report.score_calculation_explanation}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Dimension Breakdown
-        st.markdown("#### Dimension Breakdown")
-        dim_cols = st.columns(6)
-        for idx, (dim_name, ds) in enumerate(report.dimension_scores.items()):
-            with dim_cols[idx % 6]:
-                st.metric(label=dim_name, value=f"{ds.score:.0f}/100")
-
-        st.markdown("")
-        # Programmatic Deterministic Checks Table
-        st.markdown("#### Deterministic Programmatic Checks (Zero-Tolerance Engine)")
-        checks_rows = []
-        for c in report.deterministic_checks:
-            checks_rows.append({
-                "Rule Check": c.name,
-                "Status": "✅ PASS" if c.passed else "❌ FAIL",
-                "Expected": c.expected,
-                "Actual Output": c.actual
-            })
-        st.dataframe(checks_rows, use_container_width=True, hide_index=True)
-
-        # Detected Issues or Clean Audit
-        if report.detected_issues:
-            st.markdown("#### Audit Findings & Issues")
-            for i, issue in enumerate(report.detected_issues, 1):
-                st.warning(f"**{i}. [{issue.get('severity', 'ISSUE')}] {issue.get('dimension')}**: {issue.get('message')}")
-        else:
-            st.success("✅ Zero structural, factual, or formatting defects detected. All 6 High Court compliance checks passed.")
-
-        # Download Report JSON Button
-        json_path = state.get("json_path")
-        if Path(json_path).exists():
-            with open(json_path, "r", encoding="utf-8") as f:
-                st.download_button(
-                    label="📥 Download Evaluation Report (.json)",
-                    data=f.read(),
-                    file_name="Evaluation_Report.json",
-                    mime="application/json",
-                    use_container_width=True
-                )
+    # The live trace placeholder already contains the final trace; on later
+    # reruns, render the persisted trace into the same single surface.
+    if trace_placeholder is not None:
+        render_trace_log(trace_placeholder, state.get("step_traces", []))
+    if output_placeholder is not None and run_agent:
+        render_outputs(output_placeholder, state)

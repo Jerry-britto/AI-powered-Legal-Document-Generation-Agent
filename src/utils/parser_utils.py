@@ -2,9 +2,9 @@
 Document Parser utilities using LlamaParse (llama_cloud SDK) with robust fallback mechanisms.
 """
 
+import os
 import hashlib
 import logging
-import os
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, Tuple
@@ -14,9 +14,6 @@ from llama_cloud import LlamaCloud
 
 load_dotenv()
 logger = logging.getLogger(__name__)
-
-
-ARTIFACTS_DIR = Path("artifacts")
 
 
 def _parse_path(file_path: Path, use_llama_parse: bool = True) -> Tuple[str, str]:
@@ -70,11 +67,11 @@ def _parse_path(file_path: Path, use_llama_parse: bool = True) -> Tuple[str, str
     except Exception as exc:
         logger.warning("Local PDF parsing failed for %s: %s", path, exc)
 
-    raise RuntimeError(f"Unable to parse document at {path}")
+    raise RuntimeError(f"Unable to parse document at {file_path}")
 
 
 def parse_case_document(file_path: str, use_llama_parse: bool = True) -> str:
-    """Parse a document from disk without applying the cache."""
+    """Parse a document from disk without applying the upload cache."""
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"Document file not found at: {file_path}")
@@ -86,9 +83,9 @@ def ingest_case_document(
     content: bytes,
     source_name: str,
     use_llama_parse: bool = True,
-    artifacts_dir: Path = ARTIFACTS_DIR,
+    artifacts_dir: Path = Path("artifacts"),
 ) -> Tuple[str, Dict[str, Any]]:
-    """Parse and cache the complete source document by content hash."""
+    """Parse and cache the complete uploaded source document by content hash."""
     if not content:
         raise ValueError("The uploaded document is empty.")
 
@@ -97,14 +94,15 @@ def ingest_case_document(
     cache_path = artifacts_dir / f"parsed_{digest}.md"
     if cache_path.exists():
         text = cache_path.read_text(encoding="utf-8").strip()
-        return text, {
-            "source_name": source_name,
-            "source_hash": digest,
-            "cache_hit": True,
-            "cache_path": str(cache_path),
-            "parser": "cache",
-            "character_count": len(text),
-        }
+        if text:
+            return text, {
+                "source_name": source_name,
+                "source_hash": digest,
+                "cache_hit": True,
+                "cache_path": str(cache_path),
+                "parser": "cache",
+                "character_count": len(text),
+            }
 
     suffix = Path(source_name).suffix or ".bin"
     with tempfile.NamedTemporaryFile(suffix=suffix) as temp_file:

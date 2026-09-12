@@ -5,9 +5,8 @@ Runs the complete LangGraph workflow on Case Information and outputs artifacts.
 
 import sys
 import logging
-from pathlib import Path
 from src.graph.agent_worfklow import build_legal_doc_agent_graph
-from src.utils.parser_utils import ingest_case_document
+from src.utils.parser_utils import parse_case_document
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -15,13 +14,11 @@ logger = logging.getLogger(__name__)
 
 def run_agent(input_file: str, provider: str = "groq", simulated_error: str = "none"):
     logger.info("Initializing Legal Document Generation Agent Pipeline...")
-    input_path = Path(input_file)
-    raw_text, source_meta = ingest_case_document(input_path.read_bytes(), input_path.name)
+    raw_text = parse_case_document(input_file)
 
     graph = build_legal_doc_agent_graph()
     initial_state = {
         "raw_document_text": raw_text,
-        **source_meta,
         "llm_provider": provider,
         "simulated_error": simulated_error,
         "current_step": "Starting Pipeline",
@@ -37,7 +34,6 @@ def run_agent(input_file: str, provider: str = "groq", simulated_error: str = "n
     print(f"Generated DOCX: {final_state.get('docx_path')}")
     print(f"Generated JSON: {final_state.get('json_path')}")
     print(f"Generated MD:   {final_state.get('md_path')}")
-    print(f"Evaluation:     {final_state.get('evaluation_md_path')}")
     
     report = final_state.get("evaluation_report")
     if report:
@@ -55,8 +51,12 @@ def run_agent(input_file: str, provider: str = "groq", simulated_error: str = "n
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 4:
+        raise SystemExit(
+            "Usage: python main.py <provider> <simulated_error> <input_file>\n"
+            "Example: python main.py gemini none path/to/case-information.pdf"
+        )
     provider_arg = sys.argv[1] if len(sys.argv) > 1 else "groq"
     sim_arg = sys.argv[2] if len(sys.argv) > 2 else "none"
-    if len(sys.argv) < 4:
-        raise SystemExit("Usage: python main.py <provider> <simulated_error> <input_file>")
-    run_agent(sys.argv[3], provider=provider_arg, simulated_error=sim_arg)
+    input_arg = sys.argv[3]
+    run_agent(input_arg, provider=provider_arg, simulated_error=sim_arg)
