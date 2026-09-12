@@ -2,6 +2,15 @@
 
 An automated, production-grade legal document generation and evaluation system specialized for Indian High Court litigation (focusing on the **Affidavit in Reply** for Writ Petitions). The agent ingests unstructured or semi-structured case information documents, extracts key legal entities into an intermediate Pydantic schema, maps substantive points to High Court drafting moves, generates a court-typeset Affidavit in Reply (`.docx` and Markdown), and performs dual-layer evaluation combining zero-tolerance deterministic rule checking with LLM multi-dimensional quality scoring.
 
+### Runtime artifact and cache contract
+
+The workflow parses the entire uploaded document once and caches the parsed text by
+SHA-256 content hash. Identical uploads reuse `artifacts/parsed_<hash>.md` without
+reparsing. The latest run writes its exact parsed input, affidavit outputs, and
+evaluation reports to `outputs/`; `artifacts/execution_trace.json` contains the
+ordered cache and LangGraph node trace. The workflow never substitutes a default
+case file from `artifacts/`.
+
 ---
 
 ## Key Highlights & Deliverables
@@ -135,13 +144,13 @@ Open your browser at `http://localhost:8501`.
 Run the agent pipeline end-to-end directly from your terminal:
 ```bash
 # Standard clean generation with Gemini
-python main.py gemini none
+python main.py gemini none path/to/case-information.pdf
 
 # Standard clean generation with Groq
-python main.py groq none
+python main.py groq none path/to/case-information.pdf
 
 # Run with intentional error simulation (e.g. paragraph range discrepancy)
-python main.py gemini corrupt_paragraph_range
+python main.py gemini corrupt_paragraph_range path/to/case-information.pdf
 ```
 
 ### Option C: Run Unit Tests

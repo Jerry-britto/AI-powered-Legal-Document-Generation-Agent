@@ -9,6 +9,10 @@ from src.schemas.entity_schema import CaseInformationSchema, EvaluationReportSch
 class AgentWorkflowState(TypedDict, total=False):
     # Inputs
     raw_document_text: str
+    source_name: str
+    source_hash: str
+    cache_hit: bool
+    cache_path: str
     llm_provider: str  # "groq" or "gemini"
     llm_model: Optional[str]
     simulated_error: str  # "none", "corrupt_paragraph_range", "mismatch_respondent", "mismatch_verb"
@@ -25,6 +29,8 @@ class AgentWorkflowState(TypedDict, total=False):
     docx_path: Optional[str]
     json_path: Optional[str]
     md_path: Optional[str]
+    evaluation_md_path: Optional[str]
+    parsed_input_path: Optional[str]
 
     # Stage 5: Evaluation
     evaluation_report: Optional[EvaluationReportSchema]
