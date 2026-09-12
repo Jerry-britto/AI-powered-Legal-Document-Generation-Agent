@@ -7,7 +7,6 @@ and in-browser Evaluation Report display with dark-mode white headings.
 import os
 import sys
 import json
-import tempfile
 from pathlib import Path
 
 # Add project root to sys.path
@@ -17,7 +16,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from src.graph.agent_worfklow import build_legal_doc_agent_graph
-from src.utils.parser_utils import parse_case_document
+from src.utils.parser_utils import ingest_case_document
 from src.schemas.entity_schema import EvaluationReportSchema
 
 load_dotenv()
@@ -144,21 +143,23 @@ if run_agent:
         try:
             # Step 1: Ingestion
             st.write("📥 **Ingesting Input Document**...")
-            if uploaded_file is not None:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{uploaded_file.name}") as tmp:
-                    tmp.write(uploaded_file.getvalue())
-                    doc_path = tmp.name
-            else:
-                doc_path = "artifacts/03_Case_Information.md"
-
-            raw_text = parse_case_document(doc_path)
-            st.write(f"✓ Document parsed ({len(raw_text)} characters loaded).")
+            if uploaded_file is None:
+                raise ValueError("Upload a case information document before running the agent.")
+            raw_text, source_meta = ingest_case_document(
+                uploaded_file.getvalue(),
+                uploaded_file.name,
+            )
+            st.write(
+                f"✓ Document parsed ({source_meta['character_count']} characters loaded; "
+                f"{'cache hit' if source_meta['cache_hit'] else 'cached new parse'})."
+            )
 
             # Initialize LangGraph
             st.write("⚙️ **Initializing LangGraph State Workflow**...")
             graph = build_legal_doc_agent_graph()
             initial_state = {
                 "raw_document_text": raw_text,
+                **source_meta,
                 "llm_provider": "gemini",
                 "simulated_error": "none",
                 "current_step": "Starting",
@@ -206,16 +207,28 @@ if st.session_state.execution_completed and st.session_state.final_state:
     # Final Outputs: Download Affidavit (.docx) & View Evaluation Report
     # -------------------------------------------------------------
     st.markdown("---")
-    st.markdown("###  Final Legal Document: Affidavit in Reply")
+    st.markdown("### 📥 Final Legal Document: Affidavit in Reply")
+    st.caption("The generated court filing is typeset strictly according to High Court formatting standards (1.25\" margin, Times New Roman 12pt, 10 mandatory sections).")
 
-    docx_path = state.get("docx_path", "outputs/Affidavit_in_Reply.docx")
+    docx_path = state.get("docx_path")
     if Path(docx_path).exists():
         with open(docx_path, "rb") as f:
             docx_data = f.read()
 
+        intermediate = state.get("intermediate_data")
+        intermediate_data = intermediate.model_dump() if hasattr(intermediate, "model_dump") else (intermediate or {})
+        case_details = intermediate_data.get("case_details", {})
+        deponent = intermediate_data.get("deponent", {})
+        st.markdown(f"""
+        <div class="download-card">
+            <h3 style="color: #ffffff !important; margin-bottom: 8px;">Affidavit in Reply (.docx)</h3>
+            <p class="doc-meta">Forum: {case_details.get("court", "N/A")} • Proceeding: {case_details.get("proceeding_type", "N/A")} No. {case_details.get("case_number", "N/A")} of {case_details.get("year", "N/A")}<br>
+            Deponent: {deponent.get("name", "N/A")}, {deponent.get("designation", "N/A")} on behalf of {case_details.get("filed_on_behalf_of", "N/A")}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
         st.download_button(
-            label="Download Affidavit in Reply (.docx)",
+            label="📥 Download Affidavit in Reply (.docx)",
             data=docx_data,
             file_name="Affidavit_in_Reply.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -269,7 +282,7 @@ if st.session_state.execution_completed and st.session_state.final_state:
             st.success("✅ Zero structural, factual, or formatting defects detected. All 6 High Court compliance checks passed.")
 
         # Download Report JSON Button
-        json_path = state.get("json_path", "outputs/Evaluation_Report.json")
+        json_path = state.get("json_path")
         if Path(json_path).exists():
             with open(json_path, "r", encoding="utf-8") as f:
                 st.download_button(
