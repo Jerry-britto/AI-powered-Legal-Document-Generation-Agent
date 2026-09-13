@@ -163,14 +163,79 @@ def evaluate_document(state: AgentWorkflowState) -> Dict[str, Any]:
     json_path = OUTPUTS_DIR / "Evaluation_Report.json"
     evaluation_md_path = OUTPUTS_DIR / "Evaluation_Report.md"
     json_path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
-    issues = "\n".join(f"- {issue['message']}" for issue in report.detected_issues) or "- None detected."
-    dimensions = "\n".join(f"- **{name}:** {score.score}/100" for name, score in report.dimension_scores.items())
-    evaluation_md_path.write_text(
-        f"# Evaluation Report\n\n**Overall Score:** {report.overall_score}/100\n\n"
-        f"{report.score_calculation_explanation}\n\n## Dimension Scores\n\n{dimensions}\n\n"
-        f"## Issues\n\n{issues}\n",
-        encoding="utf-8",
-    )
+
+    # Format dimension scores with descriptions
+    dimensions_md = []
+    for name, score in report.dimension_scores.items():
+        status = "✓ PASS" if score.score >= 90 else "⚠ WARN" if score.score >= 50 else "✗ FAIL"
+        dimensions_md.append(
+            f"- **{name}:** {score.score}/100 [{status}]\n  - {score.explanation}"
+        )
+    dimensions = "\n".join(dimensions_md)
+
+    # Format detected issues with severity indicators
+    if report.detected_issues:
+        severity_indicators = {"CRITICAL": "🔴", "HIGH": "🟠", "MEDIUM": "🟡", "LOW": "⚪"}
+        issues_list = []
+        for issue in report.detected_issues:
+            indicator = severity_indicators.get(issue['severity'], "❓")
+            issues_list.append(
+                f"- {indicator} **{issue['severity']}** ({issue['dimension']}): {issue['message']}"
+            )
+        issues = "\n".join(issues_list)
+    else:
+        issues = "- ✨ None detected."
+
+    # Format deterministic checks
+    checks_passed = sum(1 for c in report.deterministic_checks if c.passed)
+    checks_total = len(report.deterministic_checks)
+    checks_status = "✓ ALL PASSED" if report.passed_all_deterministic else "✗ SOME FAILED"
+
+    checks_md = []
+    for check in report.deterministic_checks:
+        status = "✓" if check.passed else "✗"
+        checks_md.append(f"- {status} **{check.name}**")
+    checks_summary = "\n".join(checks_md)
+
+    # Build comprehensive report
+    report_content = f"""# Evaluation Report
+
+**Overall Score:** {report.overall_score}/100
+
+**Document:** {report.document_summary}
+
+**Deterministic Checks:** {checks_status} ({checks_passed}/{checks_total})
+
+**Filing Readiness:** {report.readiness_status}
+
+---
+
+{report.score_calculation_explanation}
+
+## Dimension Scores
+
+{dimensions}
+
+## Deterministic Checks
+
+{checks_summary}
+
+## Quality Issues Detected
+
+{issues}
+
+## Readiness Assessment
+
+{("No blocking findings. The document is ready for filing review." if report.filing_ready else "The document is not ready for filing review until the following findings are resolved:")}
+
+{chr(10).join(f"- {reason}" for reason in report.readiness_reasons) if report.readiness_reasons else "- None"}
+
+---
+
+**Report Generated:** Evaluation based on current case information with deterministic validation and optional LLM quality audit.
+"""
+
+    evaluation_md_path.write_text(report_content, encoding="utf-8")
     return {
         "evaluation_report": report,
         "json_path": str(json_path),

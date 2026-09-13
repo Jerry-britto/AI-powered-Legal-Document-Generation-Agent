@@ -123,3 +123,6 @@ class EvaluationReportSchema(BaseModel):
     score_calculation_explanation: str
     document_summary: str
     passed_all_deterministic: bool
+    filing_ready: bool = False
+    readiness_status: str = "NOT_READY"
+    readiness_reasons: List[str] = Field(default_factory=list)
