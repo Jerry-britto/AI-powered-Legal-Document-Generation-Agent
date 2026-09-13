@@ -154,8 +154,8 @@ def generate_document(state: AgentWorkflowState) -> Dict[str, Any]:
 def evaluate_document(state: AgentWorkflowState) -> Dict[str, Any]:
     llm = get_llm(state.get("llm_provider", "gemini"), state.get("llm_model"))
     report = evaluate_affidavit_document(
-        state["generated_text"],
-        state["intermediate_data"],
+        generated_text=state["generated_text"],
+        case_info=state["intermediate_data"],
         llm=llm,
         simulated_error=state.get("simulated_error", "none"),
     )

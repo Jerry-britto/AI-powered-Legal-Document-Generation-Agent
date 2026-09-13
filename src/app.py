@@ -1,8 +1,4 @@
-"""
-Streamlit Web Interface for AI-Powered Legal Document Generation Agent.
-Features sequential step execution tracing, direct .docx Word document download,
-and in-browser Evaluation Report display with dark-mode white headings.
-"""
+"""Streamlit interface for the legal document generation agent."""
 
 import sys
 from pathlib import Path
@@ -34,11 +30,7 @@ def render_trace_log(trace_placeholder, traces):
                 s_status = trace.get("status", "")
                 details = trace.get("details", [])
 
-                st.markdown(f"""
-                <div class="trace-card">
-                    <div class="trace-title">Step {s_num}: {s_name} &nbsp;•&nbsp; <span style="color: #4ade80;">{s_status}</span></div>
-                </div>
-                """, unsafe_allow_html=True)
+                st.write(f"Step {s_num}: {s_name} — {s_status}")
 
                 for item in details:
                     st.markdown(f"- {item}")
@@ -63,7 +55,7 @@ def render_outputs_content(state):
         st.warning("The generated affidavit file is not available.")
 
     st.markdown("---")
-    st.markdown("### 📊 Evaluation Report")
+    st.markdown("### Evaluation Report")
     report = state.get("evaluation_report")
     if not report:
         st.info("Evaluation information is not available.")
@@ -72,14 +64,8 @@ def render_outputs_content(state):
     if isinstance(report, dict):
         report = EvaluationReportSchema(**report)
 
-    st.markdown(f"""
-    <div class="score-card">
-        <h2 style="color: #60a5fa !important; margin: 0;">Overall Quality Score: {report.overall_score}/100</h2>
-        <p style="color: #e2e8f0; margin-top: 6px; margin-bottom: 0; font-size: 0.95rem;">
-            {report.score_calculation_explanation}
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.subheader(f"Overall quality score: {report.overall_score}/100")
+    st.write(report.score_calculation_explanation)
 
     st.markdown("#### Dimension Breakdown")
     dim_cols = st.columns(6)
@@ -109,7 +95,7 @@ def render_outputs_content(state):
             )
     else:
         st.success(
-            "✅ Zero structural, factual, or formatting defects detected. "
+            "Zero structural, factual, or formatting defects detected. "
             "All 6 High Court compliance checks passed."
         )
 
@@ -134,94 +120,15 @@ def render_outputs(output_placeholder, state):
 # Page configuration
 st.set_page_config(
     page_title="AI-Powered Legal Document Generation Agent",
-    page_icon="⚖️",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS ensuring high-contrast white headings and clean layout
-st.markdown("""
-<style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    .reportview-container .main .block-container {
-        max-width: 900px;
-        padding-top: 2rem;
-        padding-bottom: 3rem;
-    }
-    
-    /* Force white color on all headers and prominent text */
-    h1, h2, h3, h4, h5, h6,
-    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
-        color: #ffffff !important;
-        font-weight: 700;
-    }
-    
-    .main-title {
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #ffffff !important;
-        margin-bottom: 0.3rem;
-    }
-    
-    .sub-title {
-        font-size: 1.05rem;
-        color: #cbd5e1 !important;
-        margin-bottom: 1.8rem;
-    }
-    
-    /* Trace card styling */
-    .trace-card {
-        background-color: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 16px 20px;
-        margin-bottom: 12px;
-        color: #f1f5f9;
-    }
-    
-    .trace-title {
-        font-weight: 600;
-        font-size: 1.05rem;
-        color: #60a5fa !important;
-        margin-bottom: 6px;
-    }
-    
-    /* Download box */
-    .download-card {
-        background-color: #0f172a;
-        border: 1px solid #3b82f6;
-        border-radius: 10px;
-        padding: 24px;
-        text-align: center;
-        margin-top: 1rem;
-        margin-bottom: 2rem;
-    }
-    
-    .doc-meta {
-        color: #94a3b8;
-        font-size: 0.95rem;
-        margin-top: 8px;
-    }
-    
-    /* Score banner */
-    .score-card {
-        background: linear-gradient(135deg, #1e3a8a 0%, #1e293b 100%);
-        border-radius: 10px;
-        padding: 20px;
-        border: 1px solid #3b82f6;
-        margin-bottom: 1.5rem;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 # -------------------------------------------------------------
 # Main Section: Title, Subtitle, and Two Inputs
 # -------------------------------------------------------------
-st.markdown('<div class="main-title">⚖️ AI-Powered Legal Document Generation Agent</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">High Court of Judicature at Bombay • Writ Jurisdiction • Affidavit in Reply</div>', unsafe_allow_html=True)
+st.title("AI-Powered Legal Document Generation Agent")
+st.caption("High Court of Judicature at Bombay — Writ Jurisdiction — Affidavit in Reply")
 
 # Control 1: Upload the PDF
 uploaded_file = st.file_uploader(
