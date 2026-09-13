@@ -4,9 +4,7 @@ Features sequential step execution tracing, direct .docx Word document download,
 and in-browser Evaluation Report display with dark-mode white headings.
 """
 
-import os
 import sys
-import json
 from pathlib import Path
 
 # Add project root to sys.path
@@ -58,7 +56,7 @@ def render_outputs_content(state):
                 file_name="Affidavit_in_Reply.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 type="primary",
-                use_container_width=True,
+                width="stretch",
                 key="download_affidavit",
             )
     else:
@@ -100,7 +98,7 @@ def render_outputs_content(state):
         }
         for c in report.deterministic_checks
     ]
-    st.dataframe(checks_rows, use_container_width=True, hide_index=True)
+    st.dataframe(checks_rows, width="stretch", hide_index=True)
 
     if report.detected_issues:
         st.markdown("#### Audit Findings & Issues")
@@ -123,7 +121,7 @@ def render_outputs_content(state):
                 data=f.read(),
                 file_name="Evaluation_Report.json",
                 mime="application/json",
-                use_container_width=True,
+                width="stretch",
                 key="download_evaluation_report",
             )
 
@@ -233,7 +231,7 @@ uploaded_file = st.file_uploader(
 )
 
 # Control 2: Execute or Run Agent Button
-run_agent = st.button("🚀 Execute / Run Agent", type="primary", use_container_width=True)
+run_agent = st.button("🚀 Execute / Run Agent", type="primary", width="stretch")
 
 # Session state initialization
 if "execution_completed" not in st.session_state:

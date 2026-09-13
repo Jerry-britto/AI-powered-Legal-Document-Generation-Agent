@@ -185,10 +185,10 @@ def evaluate_document(state: AgentWorkflowState) -> Dict[str, Any]:
 
 def finalize_run(state: AgentWorkflowState) -> Dict[str, Any]:
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
-    parsed_input_path = OUTPUTS_DIR / "Parsed_Case_Information.md"
+    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    parsed_input_path = ARTIFACTS_DIR / "Parsed_Case_Information.md"
     parsed_input_path.write_text(state["raw_document_text"] + "\n", encoding="utf-8")
     traces = _trace(state, "Finalization", [f"Wrote {parsed_input_path}."])
-    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
     trace_payload = {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "source_name": state.get("source_name"),
@@ -230,3 +230,9 @@ def build_legal_doc_agent_graph():
     workflow.add_edge("evaluate_document", "finalize_run")
     workflow.add_edge("finalize_run", END)
     return workflow.compile()
+
+def visualize_workflow_graph(workflow):
+    """Return the rendered workflow graph for display after a UI button click."""
+    if workflow is None:
+        workflow = build_legal_doc_agent_graph()
+    return workflow.get_graph().draw_mermaid_png()
