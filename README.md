@@ -5,6 +5,10 @@ information. It extracts a structured intermediate representation, maps the fact
 into the required court-document sections, generates Markdown and DOCX outputs, and
 applies deterministic and LLM-assisted evaluation checks.
 
+## Video Demonstration
+
+<a href="https://drive.google.com/file/d/14MOGjuhqsDFaq5IPfPpQQVIOId6AJ7i2/view?usp=drive_link" target="_blank" rel="noopener noreferrer">Watch the video demonstration</a>
+
 ## Architecture
 
 ```mermaid
