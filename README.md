@@ -245,19 +245,115 @@ formatting checks instead.
 `outputs/` is for the latest run's user-facing files. The parser must never
 silently substitute a default sample case from `artifacts/`.
 
-## Running locally
+## Installation Setup
+
+### Prerequisites
+
+- Git
+- Python 3.13 or newer
+- API key for at least one supported model provider:
+  - `GEMINI_API_KEY`, or
+  - `GROQ_API_KEY`
+- Optional: `LLAMA_CLOUD_API_KEY` for LlamaParse. Local PDF extraction runs as
+  a fallback when this key is not configured.
+
+Clone repository and enter project directory:
+
+```bash
+git clone https://github.com/Jerry-britto/AI-powered-Legal-Document-Generation-Agent.git
+cd AI-powered-Legal-Document-Generation-Agent
+```
+
+### Option 1: Install with UV
+
+Install UV if it is not already available:
+
+```bash
+pip install uv
+```
+
+Create project environment and install locked dependencies:
 
 ```bash
 uv sync
+```
+
+UV creates and manages project virtual environment in `.venv`. Run commands
+through UV:
+
+```bash
+uv run streamlit run src/app.py
+```
+
+For CLI usage:
+
+```bash
+uv run python main.py gemini none path/to/case-information.pdf
+```
+
+### Option 2: Install with Python virtual environment
+
+Create virtual environment:
+
+```bash
+python3.13 -m venv .venv
+```
+
+Activate environment.
+
+macOS or Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+Windows PowerShell:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+Upgrade pip and install dependencies:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+Copy environment template:
+
+macOS or Linux:
+
+```bash
 cp .env.example .env
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Open `.env` and set `GEMINI_API_KEY` or `GROQ_API_KEY`. Set
+`LLAMA_CLOUD_API_KEY` when using LlamaParse.
+
+Start Streamlit application:
+
+```bash
 streamlit run src/app.py
 ```
 
-For the CLI:
+Run CLI:
 
 ```bash
 python main.py gemini none path/to/case-information.pdf
 ```
 
-Set `GEMINI_API_KEY` or `GROQ_API_KEY` for model-backed extraction/evaluation.
-`LLAMA_CLOUD_API_KEY` is optional; local PDF extraction is used as a fallback.
+Replace `gemini` with `groq` when using Groq. Replace
+`path/to/case-information.pdf` with uploaded case-information file path.
+
+Deactivate virtual environment after use:
+
+```bash
+deactivate
+```
